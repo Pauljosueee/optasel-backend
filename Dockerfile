@@ -1,4 +1,4 @@
-FROM node:18-bullseye
+FROM node:20-bullseye
 
 WORKDIR /app
 
@@ -10,7 +10,12 @@ RUN apt-get update \
 COPY package*.json ./
 RUN npm install
 
-COPY . .
+# Copiar estructura paso a paso para asegurar que todos los archivos se incluyan
+COPY tsconfig*.json ./
+COPY nest-cli.json ./
+COPY prisma/ ./prisma/
+COPY src/ ./src/
+
 RUN npx prisma generate
 RUN npm run build
 
