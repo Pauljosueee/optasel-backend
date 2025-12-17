@@ -1,0 +1,157 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-1.1.x"]
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        Int       @id @default(autoincrement())
+  name      String
+  email     String    @unique
+  password  String
+  role      Role      @default(usuario)
+  createdAt DateTime  @default(now())
+  movements InventoryMovement[]
+  auditLogs AuditLog[]
+}
+
+model Category {
+  id          Int        @id @default(autoincrement())
+  name        String     @unique
+  description String?
+  parentId    Int?
+  createdAt   DateTime   @default(now())
+  parent      Category?  @relation("CategoryToSub", fields: [parentId], references: [id])
+  children    Category[] @relation("CategoryToSub")
+  products    Product[]
+}
+
+model Product {
+  id        Int       @id @default(autoincrement())
+  code      String    @unique
+  name      String
+  
+  // ✅ Información detallada
+  description String?
+  brand       String?
+  tags        String? // "electronico,laptop,dell"
+  
+  // ✅ Clasificación
+  type      ProductType
+  
+  // ✅ Precios
+  cost      Float?    @default(0)
+  price     Float     @default(0)
+  
+  // ✅ Inventario
+  stock     Int       @default(0)
+  minStock  Int?      @default(5)
+  maxStock  Int?      @default(1000)
+  
+  // ✅ Configuraciones
+  isActive             Boolean @default(true)
+  allowNegativeStock   Boolean @default(false)
+  trackSerial          Boolean @default(false)
+  
+  // ✅ Notas
+  notes        String?
+  warningNotes String?
+  
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  categoryId Int?
+  category   Category? @relation(fields: [categoryId], references: [id])
+
+  movements InventoryMovement[]
+}
+
+model InventoryMovement {
+  id           Int       @id @default(autoincrement())
+  movementType MovementType
+  quantity     Int
+  description  String?
+  
+  // ✅ Nuevos campos para escáner HID
+  reason       String?   // Motivo del movimiento (sale, damaged, new_stock, etc.)
+  notes        String?   // Notas adicionales
+  scannedCode  String?   // Código de barras escaneado
+  oldStock     Int?      // Stock anterior al movimiento
+  newStock     Int?      // Stock después del movimiento
+  
+  createdAt    DateTime  @default(now())
+
+  productId Int
+  product   Product @relation(fields: [productId], references: [id])
+
+  userId Int
+  user   User @relation(fields: [userId], references: [id])
+}
+
+model AuditLog {
+  id         BigInt   @id @default(autoincrement())
+  action     LogAction
+  entity     LogEntity
+  entityId   BigInt?
+  entityName String?
+  description String @db.Text
+  userId     Int
+  userName   String
+  userRole   Role
+  timestamp  DateTime @default(now())
+  details    Json?
+  ipAddress  String?  @map("ip_address") @db.VarChar(45)
+  userAgent  String?  @map("user_agent") @db.Text
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([action])
+  @@index([entity])
+  @@index([userId])
+  @@index([timestamp])
+  @@index([entity, entityId])
+  @@map("audit_logs")
+}
+
+enum Role {
+  admin
+  usuario
+}
+
+enum ProductType {
+  UNIQUE
+  BULK
+}
+
+enum MovementType {
+  ENTRADA
+  SALIDA
+}
+
+enum LogAction {
+  CREATE
+  UPDATE
+  DELETE
+  REMOVE
+  LOGIN
+  LOGOUT
+  VIEW
+}
+
+enum LogEntity {
+  PRODUCT
+  CATEGORY
+  USER
+  INVENTORY
+  SYSTEM
+}

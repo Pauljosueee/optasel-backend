@@ -1,0 +1,35 @@
+services:
+  mariadb:
+    image: mariadb:10.11
+    container_name: inventario-mariadb
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: admin123
+      MYSQL_DATABASE: inventario
+      MYSQL_USER: inventario_user
+      MYSQL_PASSWORD: password123
+    ports:
+      - "3306:3306"
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mariadb-admin", "ping", "-h", "localhost", "-u", "root", "-padmin123"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  backend:
+    build: .
+    container_name: inventario-backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    command: npm run start:dev
+
+volumes:
+  mariadb_data:
