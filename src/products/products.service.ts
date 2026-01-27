@@ -180,8 +180,7 @@ export class ProductsService {
         },
       };
     } catch (error) {
-      console.error('Error en ProductsService.findAll:', error);
-      throw new BadRequestException(`Error al obtener los productos: ${error.message}`);
+      throw new BadRequestException('Error al obtener los productos');
     }
   }
 
@@ -419,6 +418,10 @@ export class ProductsService {
             movementType: MovementType.SALIDA,
             quantity: quantity,
             description: `ELIMINACIÓN: ${reason}${notes ? ` - ${notes}` : ''}`,
+            reason: reason,
+            notes: notes,
+            oldStock: product.stock,
+            newStock: 0,
             productId: id,
             userId: systemUserId,
           },
@@ -483,6 +486,10 @@ export class ProductsService {
             movementType: MovementType.SALIDA,
             quantity: quantity,
             description: `RETIRO: ${reason}${notes ? ` - ${notes}` : ''}`,
+            reason: reason,
+            notes: notes,
+            oldStock: product.stock,
+            newStock: newStock,
             productId: id,
             userId: systemUserId,
           },
@@ -538,14 +545,20 @@ export class ProductsService {
 
   async remove(id: number) {
     try {
+      console.log('🔍 Intentando eliminar producto con ID:', id);
+      console.log('🔍 Tipo de ID:', typeof id);
+
       const product = await this.prisma.product.findUnique({
         where: { id },
-        include: {
-          movements: true, // Incluir movimientos para logging
-        },
+        // include: {
+        //   movements: true, // Incluir movimientos para logging
+        // },
       });
 
+      console.log('🔍 Producto encontrado:', product ? product.name : 'No encontrado');
+
       if (!product) {
+        console.log('❌ Producto no encontrado con ID:', id);
         throw new NotFoundException('Producto no encontrado');
       }
 
@@ -555,6 +568,8 @@ export class ProductsService {
         const movementsCount = await prisma.inventoryMovement.count({
           where: { productId: id },
         });
+
+        console.log(`🔍 Movimientos encontrados para eliminar: ${movementsCount}`);
 
         if (movementsCount > 0) {
           await prisma.inventoryMovement.deleteMany({
@@ -567,6 +582,7 @@ export class ProductsService {
         await prisma.product.delete({
           where: { id },
         });
+        console.log(`✅ Producto eliminado: ${product.name} (${product.code})`);
       });
 
       return {
@@ -579,11 +595,15 @@ export class ProductsService {
         }
       };
     } catch (error) {
+      console.error('❌ Error detallado al eliminar producto:', error);
+      console.error('❌ Stack trace:', error.stack);
+      
       if (error instanceof NotFoundException || error instanceof BadRequestException) {
         throw error;
       }
-      console.error('Error al eliminar producto:', error);
-      throw new BadRequestException('Error al eliminar el producto');
+      
+      // Dar más detalles del error
+      throw new BadRequestException(`Error al eliminar el producto: ${error.message}`);
     }
   }
 
